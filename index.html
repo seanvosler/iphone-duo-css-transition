@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{color-scheme:light dark} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+<title>Fold Spread</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Schibsted+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a device-framed two-column reading spread is the hero; controls dock directly under it; a short "how it works" closes the page. */
+:root{
+  --bg:#e8ebe7; --fg:#1b2220; --muted:#5b6864; --line:#c7cfcb; --panel:#f4f6f3;
+  --accent:#2c6770; --accent-ink:#ffffff;
+  --bezel:#141918; --paper:#fbfaf6; --ink:#1f2523; --ink-soft:#57615d; --rule:#dcdfd8;
+  --curve-h:#2c6770; --curve-f:#c0673f; 
+  --f-read:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui:"Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1413; --fg:#e3eae7; --muted:#8d9a96; --line:#27312f; --panel:#161d1c;
+    --accent:#72b4bc; --accent-ink:#0b1312;
+    --bezel:#040606; --paper:#1a1f1e; --ink:#e8e5dd; --ink-soft:#a4aba7; --rule:#2d3533;
+    --curve-h:#72b4bc; --curve-f:#e0916a; 
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1413; --fg:#e3eae7; --muted:#8d9a96; --line:#27312f; --panel:#161d1c;
+  --accent:#72b4bc; --accent-ink:#0b1312;
+  --bezel:#040606; --paper:#1a1f1e; --ink:#e8e5dd; --ink-soft:#a4aba7; --rule:#2d3533;
+  --curve-h:#72b4bc; --curve-f:#e0916a; 
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:clamp(16px,3vw,32px);padding-block:28px 64px;display:grid;gap:22px}
+
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px}
+header h1{margin:0;font-family:var(--f-read);font-weight:600;font-size:clamp(26px,3.2vw,36px);letter-spacing:-.01em;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:58ch}
+
+/* ---------- device + stage ---------- */
+.device{--pad:clamp(6px,1vw,12px);--radius:clamp(8px,1.6vw,20px);position:relative;background:var(--bezel);border-radius:calc(var(--radius) + var(--pad));padding:var(--pad);margin-block:clamp(16px,4vw,48px);box-shadow:0 30px 60px -30px rgba(0,0,0,.45)}
+.screen{
+  position:relative;container-type:inline-size;aspect-ratio:16/10;max-width:100%;
+  border-radius:var(--radius);overflow:hidden;background:var(--paper);color:var(--ink);
+}
+.device{touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.device.dragging{cursor:grabbing}
+@media (max-width:640px){ .screen{aspect-ratio:4/5} }
+
+.layer{position:absolute;inset:0;overflow:hidden;background:var(--paper)}
+.slot{position:absolute;top:0;bottom:0;width:50%}
+.slot.left{left:0}
+.slot.right{left:50%}
+
+/* The flap: same box as the screen, but allowed to spill past it while it tilts toward you. */
+.flap{position:absolute;inset:var(--pad);container-type:inline-size;color:var(--ink);pointer-events:none;will-change:clip-path}
+.flap .glassfill{position:absolute;inset:-40%;background:var(--bezel)}
+.stack{position:absolute;inset:0}
+.lyr{position:absolute;will-change:filter}
+.lyr .flat{position:absolute;overflow:hidden;background:var(--paper);border-radius:var(--radius)}
+.darken{position:absolute;top:-40%;bottom:-40%;pointer-events:none}
+.outline-svg{position:absolute;inset:var(--pad);overflow:visible;pointer-events:none;width:calc(100% - 2*var(--pad));height:calc(100% - 2*var(--pad))}
+.outline-svg[hidden],.stack[hidden],.layer[hidden]{display:none}
+/* Three-panel mode: no A, and only the fixed half of the device exists at rest. */
+.fixedbody{display:none;position:absolute;top:0;bottom:0;left:calc(50% - var(--pad));right:0;background:var(--bezel);border-radius:calc(var(--radius) + var(--pad));box-shadow:0 30px 60px -30px rgba(0,0,0,.45)}
+.device.duo{background:transparent;box-shadow:none}
+.device.duo .fixedbody{display:block}
+.device.duo .screen{clip-path:inset(0 0 0 50%);background:transparent}
+.device{will-change:transform}
+.modebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--panel)}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:block;padding:7px 14px;border-radius:999px;font-size:13.5px;color:var(--muted);white-space:nowrap}
+.seg input:checked + span{background:var(--accent);color:var(--accent-ink)}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.modebar small{color:var(--muted);font-size:13px}
+.outline-svg polygon{fill:none;stroke:var(--curve-f);stroke-width:2;stroke-dasharray:6 5}
+
+/* ---------- spread typography (sized to the screen via cqw) ---------- */
+.col{position:absolute;inset:0;padding:4.2cqw 3.6cqw 3cqw;display:flex;flex-direction:column;gap:1.3cqw;font-family:var(--f-read)}
+.eyebrow{font-family:var(--f-ui);font-size:max(8px,.95cqw);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+.col h2{margin:0;font-weight:600;font-size:max(15px,3cqw);line-height:1.05;letter-spacing:-.015em;text-wrap:balance}
+.col p{margin:0;font-size:max(9px,1.28cqw);line-height:1.55;color:var(--ink)}
+.col p.dek{font-style:italic;color:var(--ink-soft);font-size:max(10px,1.5cqw);line-height:1.35}
+.col.a{-webkit-mask-image:linear-gradient(#000 82%,transparent);mask-image:linear-gradient(#000 82%,transparent)}
+.col.a .body{columns:1;display:grid;gap:1cqw}
+.col.a .body p:first-child::first-letter{float:left;font-size:3.9em;line-height:.8;padding:.06em .08em 0 0;font-weight:600}
+figure{margin:0}
+.b figure{border-radius:.6cqw;overflow:hidden;aspect-ratio:3/2;flex-shrink:0}
+.b figure svg,.c-hero svg{display:block;width:100%;height:100%}
+figcaption,.cap{font-family:var(--f-ui);font-size:max(8px,.9cqw);color:var(--ink-soft)}
+.pull{font-size:max(11px,1.9cqw)!important;line-height:1.25!important;font-style:italic;border-left:.25cqw solid var(--rule);padding-left:1.2cqw}
+
+.c-hero{position:absolute;inset:0;overflow:hidden}
+.plate{position:absolute;left:3.6cqw;bottom:3cqw;right:3.6cqw;color:#f4efe2;font-family:var(--f-ui);font-size:max(8px,.95cqw);letter-spacing:.06em}
+.c-text{position:absolute;inset:0;font-family:var(--f-read);padding:4.2cqw 3.6cqw 3cqw 3.6cqw;display:flex;flex-direction:column;gap:1.3cqw;min-width:0}
+.c-text h2{margin:0;font-weight:600;font-size:max(17px,3.6cqw);line-height:1.02;letter-spacing:-.02em;text-wrap:balance}
+.c-text p{margin:0;font-size:max(9px,1.28cqw);line-height:1.55}
+.tide{border-collapse:collapse;font-family:var(--f-mono);font-size:max(8px,1cqw);font-variant-numeric:tabular-nums;width:100%}
+.tide th{font-family:var(--f-ui);font-weight:500;text-align:left;color:var(--ink-soft);letter-spacing:.08em;text-transform:uppercase;font-size:.85em;padding:.5cqw 0;border-bottom:1px solid var(--rule)}
+.tide td{padding:.55cqw 0;border-bottom:1px solid var(--rule)}
+.tide td:last-child,.tide th:last-child{text-align:right}
+
+/* ---------- controls ---------- */
+.controls{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px 20px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+.btn{font:600 15px/1 var(--f-ui);background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:12px 20px;cursor:pointer;white-space:nowrap;min-width:9.5em}
+.btn:focus-visible,input:focus-visible,.chip:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+.scrub{display:grid;gap:4px;min-width:0}
+.scrub label,.knob label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.readout{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted);display:grid;gap:2px;text-align:right;white-space:nowrap}
+.readout b{color:var(--fg);font-weight:500}
+
+.tuning{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px 26px;align-items:start}
+.knob{display:grid;gap:4px}
+.knob .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.knob output{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.knob small{color:var(--muted);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13.5px;cursor:pointer;background:var(--panel)}
+.chip input{accent-color:var(--accent);margin:0}
+
+.curves{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.curves svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px 28px;border-top:1px solid var(--line);padding-top:22px}
+.notes h3{margin:0 0 6px;font-size:15px}
+.notes p{margin:0;color:var(--muted);max-width:60ch}
+code,pre{font-family:var(--f-mono);font-size:12.5px}
+pre{margin:8px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;overflow-x:auto;color:var(--fg)}
+
+@media (max-width:640px){
+  .controls{grid-template-columns:1fr auto}
+  .scrub{grid-column:1/-1;order:3}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fold Spread</h1>
+    <p>A tilting pane of glass folds panel B over to reveal C and D. The content never moves or tilts. Depth comes from the pane outgrowing its content at the top and bottom, and from blur that grows away from the hinge.</p>
+  </header>
+
+  <div class="modebar" role="radiogroup" aria-label="Layout mode">
+    <div class="seg">
+      <label><input type="radio" name="mode" value="four" checked><span>Four panels · A B C D</span></label>
+      <label><input type="radio" name="mode" value="three"><span>Three panels · B C D</span></label>
+    </div>
+    <small id="modeHint">B folds over A. C rides in on the back of B, D is uncovered underneath.</small>
+  </div>
+
+  <div class="device" id="device">
+    <div class="fixedbody"></div>
+    <div class="screen" id="screen" aria-label="Two-column spread. Use the Fold button to switch to the full-width view.">
+      <!-- Flat: column A on the left half -->
+      <div class="layer" id="layerA"><div class="slot left">
+          <article class="col a">
+            <span class="eyebrow">Chapter 1 · Low Water</span>
+            <h2>What the tide leaves behind</h2>
+            <p class="dek">An essay in two tides, written on the harbor wall.</p>
+            <div class="body">
+              <p>Before dawn the harbor empties like a drawn breath. The boats that were floating at midnight are sitting on their keels by four, leaning into one another, their mooring lines gone slack and draped across the mud. Nothing has been taken away. The water has only stepped back far enough for you to see what was always there.</p>
+              <p>I come down most mornings to watch it happen. There is a particular quiet at low water that has nothing to do with silence: gulls work the flats, the stream in the channel keeps talking to itself, and somewhere a halyard knocks against a mast in a rhythm nobody set. But the big sound, the sea itself, has gone out of the room.</p>
+              <p>What surprises me every time is how much structure the water had been hiding. Sandbars with the shape of fingerprints. A line of old pilings from a pier nobody remembers building. Mussel beds so dense they read as a single dark coat. At high water all of it is simply "the harbor." At low water it is a map, and you can walk on it, if you know when to leave.</p>
+              <p>That is the part people forget. The tide is not a mood; it is a schedule. It will come back at the minute the table says, and it does not negotiate with anyone standing too far out on the flats.</p>
+              <p>So I read the table the night before the way other people read the weather: when the low comes, how low it goes, how long I have before the channel closes behind me.</p>
+            </div>
+          </article>
+      </div></div>
+      <!-- Flat: panel D on the right half, always sharp, uncovered as the flap swings away -->
+      <div class="layer" id="layerD"></div>
+    </div>
+
+    <!-- The flap. Its outline is projected in perspective; the content inside it never moves. -->
+    <div class="flap" id="flap" aria-hidden="true">
+      <div class="glassfill"></div>
+      <div class="stack" id="stackB"></div>
+      <div class="stack" id="stackC" hidden></div>
+      <div class="darken" id="darken"></div>
+    </div>
+    <svg class="outline-svg" id="outlineSvg" hidden><polygon id="outlinePoly"/></svg>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="toggle" type="button">Fold B over A</button>
+    <div class="scrub">
+      <label for="t">Timeline</label>
+      <input id="t" type="range" min="0" max="1000" value="0" aria-describedby="readout">
+    </div>
+    <div class="readout" id="readout" aria-live="off">
+      <span>fold <b id="rAngle">0°</b></span>
+      <span>blur <b id="rFocus">—</b></span>
+    </div>
+  </div>
+
+  <div class="tuning">
+    <div class="knob">
+      <div class="row"><label for="maxBlur">Max blur</label><output id="oBlur">30 px</output></div>
+      <input id="maxBlur" type="range" min="0" max="80" value="30">
+      <small>Blur at the free edge when the flap stands upright. It falls off toward the hinge.</small>
+    </div>
+    <div class="knob">
+      <div class="row"><label for="dark">Edge darkening</label><output id="oDark">100%</output></div>
+      <input id="dark" type="range" min="0" max="150" value="100">
+      <small>How dark the flap gets toward its free edge.</small>
+    </div>
+    <div class="knob">
+      <div class="row"><label for="depth">Depth</label><output id="oDepth">70%</output></div>
+      <input id="depth" type="range" min="0" max="100" value="70">
+      <small>Perspective strength. Sets how far the flap spills past the content at top and bottom.</small>
+    </div>
+    <div class="knob">
+      <div class="row"><label for="lag">Focus lag</label><output id="oLag">30%</output></div>
+      <input id="lag" type="range" min="0" max="60" value="30">
+      <small>Keeps C blurred after the flap lands, then pulls it into focus. At 0 the blur follows the angle only.</small>
+    </div>
+    <div class="knob">
+      <div class="row"><label for="dur">Duration</label><output id="oDur">1.6 s</output></div>
+      <input id="dur" type="range" min="4" max="40" value="16">
+      <div class="chips" style="margin-top:6px">
+        <label class="chip"><input id="scrollScrub" type="checkbox" checked> Scroll or drag scrubs</label>
+        <label class="chip"><input id="slow" type="checkbox"> Slow motion ×4</label>
+        <label class="chip"><input id="outline" type="checkbox"> Show flap outline</label>
+      </div>
+    </div>
+    <div class="curves">
+      <svg id="curveSvg" viewBox="0 0 300 90" role="img" aria-label="Fold angle and blur strength over the timeline">
+        <line x1="0" y1="80" x2="300" y2="80" stroke="var(--line)"/>
+        <line x1="0" y1="10" x2="300" y2="10" stroke="var(--line)" stroke-dasharray="2 4"/>
+        <path id="pH" fill="none" stroke="var(--curve-h)" stroke-width="2.2"/>
+        <path id="pF" fill="none" stroke="var(--curve-f)" stroke-width="2.2"/>
+        <line id="playhead" x1="0" y1="4" x2="0" y2="86" stroke="var(--fg)" stroke-width="1.2"/>
+      </svg>
+      <div class="legend"><span><i style="background:var(--curve-h)"></i>Fold angle</span><span><i style="background:var(--curve-f)"></i>Blur on the flap</span></div>
+    </div>
+  </div>
+
+  <section class="notes">
+    <div>
+      <h3>Flat content, tilted outline</h3>
+      <p>The flap's outline is projected in perspective, so it grows taller toward its free edge. The content inside is drawn flat at its resting size and never transforms. The gap between the two is dark glass, and that's where the shadow at the top and bottom comes from.</p>
+    </div>
+    <div>
+      <h3>Blur grows away from the hinge</h3>
+      <p>Following the open-source <a href="https://github.com/chuspeeism/iphone-duo">iphone-duo</a> shader: blur is <code>max × lift × distance^1.35</code> and darkening reaches black at the free edge. CSS can't vary blur across one element, so the flap stacks five copies at rising blur and crossfades them with masks.</p>
+    </div>
+    <div>
+      <h3>What shows when</h3>
+      <p>Until 90°, the flap shows B. Past 90° you're looking at its other side, so it shows C. D sits under the flap and is always sharp. Fire it from code:</p>
+      <pre>window.dispatchEvent(new CustomEvent(
+  'spread:fold', { detail: { open: true } }))</pre>
+    </div>
+  </section>
+</div>
+
+<template id="tpl-b">
+  <div class="slot right">
+            <article class="col b">
+              <span class="eyebrow">Field note · 04:12</span>
+              <figure>
+                <svg viewBox="0 0 400 267" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="bSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1c6a0"/><stop offset=".6" stop-color="#e5a18a"/><stop offset="1" stop-color="#a7bcc0"/></linearGradient>
+                    <linearGradient id="bSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fa2a8"/><stop offset="1" stop-color="#2e5058"/></linearGradient>
+                  </defs>
+                  <rect width="400" height="267" fill="url(#bSky)"/>
+                  <circle cx="292" cy="128" r="24" fill="#fbe5c6"/>
+                  <rect y="156" width="400" height="111" fill="url(#bSea)"/>
+                  <ellipse cx="292" cy="190" rx="18" ry="60" fill="#fbe5c6" opacity=".22"/>
+                  <path d="M0 214 C80 204 160 222 250 210 S360 200 400 206 V267 H0Z" fill="#c9b08e"/>
+                  <path d="M0 230 C90 222 170 238 260 228 S370 222 400 226 V267 H0Z" fill="#a88f6e"/>
+                  <g fill="#27302f">
+                    <rect x="0" y="122" width="236" height="7"/>
+                    <rect x="18" y="129" width="5" height="96"/><rect x="62" y="129" width="5" height="92"/><rect x="106" y="129" width="5" height="88"/><rect x="150" y="129" width="5" height="84"/><rect x="194" y="129" width="5" height="80"/><rect x="230" y="129" width="5" height="78"/>
+                  </g>
+                </svg>
+              </figure>
+              <figcaption>The pier at low water, 0.9 ft. The pilings stand in sand an hour after midnight's high.</figcaption>
+              <p class="pull">“Nothing has been taken away. The water has only stepped back.”</p>
+              <p>By six the flats will be gone again. Turn the page for the table I keep folded in my coat.</p>
+            </article>
+  </div>
+</template>
+
+<template id="tpl-c">
+  <div class="slot left">
+    <figure class="c-hero">
+      <svg viewBox="0 0 600 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="cSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d3346"/><stop offset=".55" stop-color="#5b6f86"/><stop offset=".85" stop-color="#e3a98b"/><stop offset="1" stop-color="#f0c7a2"/></linearGradient>
+          <linearGradient id="cSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d7e8c"/><stop offset="1" stop-color="#182c36"/></linearGradient>
+        </defs>
+        <rect width="600" height="500" fill="url(#cSky)"/>
+        <g fill="#f4efe2" opacity=".8"><circle cx="70" cy="60" r="1.6"/><circle cx="160" cy="34" r="1.2"/><circle cx="240" cy="88" r="1.4"/><circle cx="380" cy="42" r="1.1"/><circle cx="520" cy="70" r="1.5"/><circle cx="455" cy="120" r="1"/></g>
+        <circle cx="410" cy="150" r="34" fill="#f5ecd9"/>
+        <rect y="300" width="600" height="200" fill="url(#cSea)"/>
+        <rect x="396" y="302" width="28" height="150" fill="#f5ecd9" opacity=".18"/>
+        <path d="M0 290 C70 250 130 230 200 244 S300 290 360 296 L360 302 L0 302Z" fill="#1a242b"/>
+        <path d="M600 280 C560 262 520 270 480 286 S430 300 420 302 L600 302Z" fill="#223038"/>
+        <g stroke="#dfe7e6" stroke-opacity=".35" fill="none">
+          <path d="M0 340 C100 334 200 346 300 338 S500 332 600 340"/>
+          <path d="M0 380 C120 372 240 388 360 378 S520 372 600 380"/>
+          <path d="M0 430 C140 420 260 440 380 428 S540 422 600 430"/>
+        </g>
+        <g font-family="JetBrains Mono, monospace" font-size="12" fill="#f4efe2" opacity=".85">
+          <line x1="560" y1="200" x2="560" y2="440" stroke="#f4efe2" stroke-opacity=".6"/>
+          <line x1="552" y1="200" x2="568" y2="200" stroke="#f4efe2"/><text x="526" y="204">6ft</text>
+          <line x1="554" y1="280" x2="566" y2="280" stroke="#f4efe2"/><text x="526" y="284">4ft</text>
+          <line x1="554" y1="360" x2="566" y2="360" stroke="#f4efe2"/><text x="526" y="364">2ft</text>
+          <line x1="552" y1="440" x2="568" y2="440" stroke="#f4efe2"/><text x="526" y="444">0ft</text>
+        </g>
+      </svg>
+      <figcaption class="plate">Panel C · Harbor Point at moonrise, high water 22:55</figcaption>
+    </figure>
+  </div>
+</template>
+
+<template id="tpl-d">
+  <div class="slot right">
+    <div class="c-text">
+      <span class="eyebrow">Chapter 2 · The Table</span>
+      <h2>Twice a day, the sea leaves</h2>
+      <p>The table is the only honest document in the harbor. Four lines a day, give or take, and every one of them comes true on time. Read it the night before and you know how far out you can walk and when you have to turn around.</p>
+      <table class="tide">
+        <thead><tr><th>Harbor Point · Wed</th><th>Time</th><th>Height</th></tr></thead>
+        <tbody>
+          <tr><td>Low</td><td>04:12</td><td>0.9 ft</td></tr>
+          <tr><td>High</td><td>10:31</td><td>5.6 ft</td></tr>
+          <tr><td>Low</td><td>16:48</td><td>1.4 ft</td></tr>
+          <tr><td>High</td><td>22:55</td><td>6.1 ft</td></tr>
+        </tbody>
+      </table>
+      <span class="cap">Example tide table. Heights above mean lower low water.</span>
+    </div>
+  </div>
+</template>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const device = $('device'), screen = $('screen'), flap = $('flap'), layerD = $('layerD'), layerA = $('layerA');
+  const stackB = $('stackB'), stackC = $('stackC'), darken = $('darken');
+  const btn = $('toggle'), tInput = $('t');
+
+  const LEVELS = [0, 0.25, 0.5, 0.75, 1];   // distance from the hinge each blur copy is tuned for
+  const M = 140;                             // room around each copy so its blur can spill into the dark glass
+
+  // Flat C on the screen, plus five copies of B and of C inside the flap (one per blur level).
+  layerD.append($('tpl-d').content.cloneNode(true));
+  const build = (stack, tpl) => LEVELS.map(() => {
+    const lyr = document.createElement('div'); lyr.className = 'lyr';
+    const flat = document.createElement('div'); flat.className = 'flat';
+    flat.append($(tpl).content.cloneNode(true));
+    lyr.append(flat); stack.append(lyr);
+    return lyr;
+  });
+  const layersB = build(stackB, 'tpl-b');
+  const layersC = build(stackC, 'tpl-c');
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cfg = { maxBlur: 30, dark: 1, depth: 0.7, lag: 0.3, dur: 1.6 };
+  let t = 0, target = 0, raf = 0, mode = 'four';
+  let W = 0, H = 0, pad = 0, radius = 0;
+
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  const out = (x) => 1 - Math.pow(1 - x, 3);
+  const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+  const blur = (px) => px < 0.05 ? 'none' : `blur(${px.toFixed(2)}px)`;
+  const falloff = (d) => Math.pow(clamp(d), 1.35);
+
+  // Timeline -> fold angle (0..1 of 180deg) and blur strength on the flap.
+  function state(t) {
+    const Hd = Math.max(0.25, 1 - cfg.lag);
+    const h = inOut(clamp(t / Hd));
+    const f = cfg.lag < 0.005 ? 1 : out(clamp((t - Hd * 0.8) / (1 - Hd * 0.8)));
+    const showB = h < 0.5;
+    const geo = showB ? smooth(2 * h) : smooth(2 * (1 - h));   // how far the flap is from lying flat
+    const m = showB ? geo : Math.max(geo, 1 - f);               // blur lingers after landing; darkening doesn't
+    return { h, m, geo, showB };
+  }
+
+  function layout() {
+    W = screen.clientWidth; H = screen.clientHeight;
+    const cs = getComputedStyle(device);
+    pad = parseFloat(cs.paddingLeft) || 0;
+    radius = parseFloat(getComputedStyle(screen).borderTopLeftRadius) || 0;
+    const Wl = W + 2 * M, hx = W / 2, w = W / 2;
+    const place = (lyrs, dir) => lyrs.forEach((lyr, i) => {
+      Object.assign(lyr.style, { left: -M + 'px', top: -M + 'px', width: Wl + 'px', height: H + 2 * M + 'px' });
+      Object.assign(lyr.firstChild.style, { left: M + 'px', top: M + 'px', width: W + 'px', height: H + 'px' });
+      if (i === 0) return;
+      // Each copy fades in between the previous level and its own, measured outward from the hinge.
+      const x0 = M + hx + dir * LEVELS[i - 1] * w, x1 = M + hx + dir * LEVELS[i] * w;
+      const g = dir > 0
+        ? `linear-gradient(90deg, transparent ${x0}px, #000 ${x1}px)`
+        : `linear-gradient(270deg, transparent ${Wl - x0}px, #000 ${Wl - x1}px)`;
+      lyr.style.webkitMaskImage = g; lyr.style.maskImage = g;
+    });
+    place(layersB, 1);
+    place(layersC, -1);
+    Object.assign(darken.style, { left: -M + 'px', width: Wl + 'px' });
+    render();
+  }
+
+  // Rounded outline: straight edges with quadratic corners at the two free-edge corners.
+  function roundedPath(P, r) {
+    const toward = (a, b, d) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; const k = Math.min(d, L / 2) / L; return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]; };
+    const [p1, p2, p3, p4] = P;
+    const a = toward(p2, p1, r), b = toward(p2, p3, r), c = toward(p3, p2, r), d = toward(p3, p4, r);
+    const f = (p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+    return `M ${f(p1)} L ${f(a)} Q ${f(p2)} ${f(b)} L ${f(c)} Q ${f(p3)} ${f(d)} L ${f(p4)} Z`;
+  }
+
+  function render() {
+    if (!W) return;
+    const { h, m, geo, showB } = state(t);
+    const B = cfg.maxBlur;
+    const hx = W / 2, w = W / 2, cy = H / 2, b = pad;
+
+    // Project the flap: a rigid sheet hinged at the center, seen by a fixed eye at distance E.
+    const E = W * (8 - 6.4 * cfg.depth);
+    const th = Math.PI * h, cos = Math.cos(th), sin = Math.sin(th);
+    const U = w + b;
+    const sU = E / (E - U * sin);
+    const xU = hx + U * cos * sU;
+    const P = [[hx, -b], [xU, cy + (-b - cy) * sU], [xU, cy + (H + b - cy) * sU], [hx, H + b]];
+    const r = (radius + b) * sU;
+    flap.style.clipPath = `path('${roundedPath(P, r)}')`;
+    $('outlinePoly').setAttribute('points', P.map(p => p.map(v => v.toFixed(1)).join(',')).join(' '));
+
+    // The stationary half of C is uncovered as the flap swings away, and always sharp.
+    layerD.style.clipPath = `inset(0 0 0 ${(showB ? clamp(xU / W, 0.5, 1) : 0.5) * 100}%)`;
+
+    // Three-panel mode: keep the visible device centered as it grows to the left.
+    if (mode === 'three') {
+      const left = Math.min(hx, xU);
+      device.style.transform = `translateX(${(-(left + pad) / 2).toFixed(2)}px)`;
+    } else device.style.transform = '';
+
+    // Which side of the flap faces you.
+    stackB.hidden = !showB; stackC.hidden = showB;
+    const lyrs = showB ? layersB : layersC;
+    lyrs.forEach((lyr, i) => { if (i) lyr.style.filter = blur(B * m * falloff(LEVELS[i])); });
+
+    // Darkening grows toward the free edge and reaches black there.
+    const Wl = W + 2 * M, stops = [];
+    for (let k = 0; k <= 10; k++) {
+      const d = k / 10;
+      const alpha = clamp(2 * geo * cfg.dark * falloff((d - 0.2) / 0.8));
+      const x = M + hx + (showB ? 1 : -1) * d * w;
+      stops.push(`rgba(0,0,0,${alpha.toFixed(3)}) ${(showB ? x : Wl - x).toFixed(1)}px`);
+    }
+    darken.style.background = `linear-gradient(${showB ? 90 : 270}deg, ${stops.join(', ')})`;
+
+    tInput.value = Math.round(t * 1000);
+    $('rAngle').textContent = `${Math.round(180 * h)}°`;
+    $('rFocus').textContent = `${Math.round(m * 100)}%`;
+    $('playhead').setAttribute('x1', (t * 300).toFixed(1));
+    $('playhead').setAttribute('x2', (t * 300).toFixed(1));
+  }
+
+  function drawCurves() {
+    let dh = '', dm = '';
+    for (let i = 0; i <= 150; i++) {
+      const x = i / 150, { h, m } = state(x), X = (x * 300).toFixed(1);
+      dh += (i ? 'L' : 'M') + X + ' ' + (80 - h * 70).toFixed(1);
+      dm += (i ? 'L' : 'M') + X + ' ' + (80 - m * 70).toFixed(1);
+    }
+    $('pH').setAttribute('d', dh);
+    $('pF').setAttribute('d', dm);
+  }
+
+  const LABELS = { four: ['Fold B over A', 'Unfold'], three: ['Open B', 'Close'] };
+  function setBtn() { btn.textContent = LABELS[mode][target >= 0.5 ? 1 : 0]; }
+
+  const HINTS = {
+    four: 'B folds over A. C rides in on the back of B, D is uncovered underneath.',
+    three: 'Only B is showing. It folds left, C rides in on its back, and D is uncovered underneath.'
+  };
+  document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', () => {
+    mode = r.value;
+    device.classList.toggle('duo', mode === 'three');
+    layerA.hidden = mode === 'three';
+    $('modeHint').textContent = HINTS[mode];
+    cancelAnimationFrame(raf); t = 0; target = 0; setBtn(); render();
+  }));
+
+  function animateTo(to) {
+    cancelAnimationFrame(raf);
+    target = to; setBtn();
+    const from = t, slow = $('slow').checked ? 4 : 1;
+    const ms = reduce ? 250 : Math.abs(to - from) * cfg.dur * 1000 * slow;
+    const start = performance.now();
+    const step = (now) => {
+      const k = ms ? clamp((now - start) / ms) : 1;
+      t = from + (to - from) * k;
+      render();
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+  }
+
+  function scrubTo(v) { cancelAnimationFrame(raf); t = clamp(v); target = t >= 0.5 ? 1 : 0; setBtn(); render(); }
+
+  btn.addEventListener('click', () => animateTo(target >= 0.5 ? 0 : 1));
+  tInput.addEventListener('input', () => scrubTo(tInput.value / 1000));
+  window.addEventListener('spread:fold', (e) => {
+    const open = e.detail && typeof e.detail.open === 'boolean' ? e.detail.open : target < 0.5;
+    animateTo(open ? 1 : 0);
+  });
+
+  device.addEventListener('wheel', (e) => {
+    if (!$('scrollScrub').checked) return;
+    const d = e.deltaY / 700;
+    if ((d > 0 && t >= 1) || (d < 0 && t <= 0)) return;
+    e.preventDefault();
+    scrubTo(t + d);
+  }, { passive: false });
+
+  let drag = null;
+  device.addEventListener('pointerdown', (e) => {
+    if (!$('scrollScrub').checked || e.button !== 0) return;
+    drag = { x: e.clientX, t0: t, moved: false, w: W / 2 || 1 };
+    device.setPointerCapture(e.pointerId);
+  });
+  device.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = drag.x - e.clientX;
+    if (Math.abs(dx) > 4) { drag.moved = true; device.classList.add('dragging'); }
+    if (drag.moved) scrubTo(drag.t0 + dx / drag.w);
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const moved = drag.moved; drag = null; device.classList.remove('dragging');
+    if (moved && t > 0 && t < 1) animateTo(t >= 0.5 ? 1 : 0);
+  };
+  device.addEventListener('pointerup', endDrag);
+  device.addEventListener('pointercancel', endDrag);
+
+  const knob = (id, out, fmt, set, curves) => $(id).addEventListener('input', (e) => {
+    set(+e.target.value); $(out).textContent = fmt(+e.target.value); if (curves) drawCurves(); render();
+  });
+  knob('maxBlur', 'oBlur', v => `${v} px`, v => cfg.maxBlur = v);
+  knob('dark', 'oDark', v => `${v}%`, v => cfg.dark = v / 100);
+  knob('depth', 'oDepth', v => `${v}%`, v => cfg.depth = v / 100);
+  knob('lag', 'oLag', v => `${v}%`, v => cfg.lag = v / 100, true);
+  knob('dur', 'oDur', v => `${(v / 10).toFixed(1)} s`, v => cfg.dur = v / 10);
+  $('outline').addEventListener('change', (e) => { $('outlineSvg').hidden = !e.target.checked; });
+
+  new ResizeObserver(layout).observe(screen);
+  drawCurves();
+  layout();
+
+  window.foldSpread = { open: () => animateTo(1), close: () => animateTo(0), set: scrubTo, cfg };
+})();
+</script>
+</body>
+</html>
