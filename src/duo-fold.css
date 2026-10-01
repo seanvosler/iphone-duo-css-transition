@@ -1,0 +1,71 @@
+/*! duo-fold v0.1 — iPhone Duo–style fold for two-column layouts. MIT-style use; see repo. */
+
+.duo {
+  --duo-columns: 1fr 1fr;
+  --duo-gap: 0px;
+  --duo-duration: 1.6s;
+  --duo-blur: 30px;
+  --duo-darken: 1;
+  --duo-depth: 0.7;
+  --duo-lag: 0.3;
+  --duo-quality: 5;
+  --duo-glass: #0b0d0e;
+  --duo-bezel: 0px;
+  --duo-radius: 0px;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--duo-columns);
+  column-gap: var(--duo-gap);
+}
+
+/* Panes share one grid row: A and C on the left, B and D on the right. */
+.duo > [data-pane] { grid-row: 1; min-width: 0; }
+.duo > [data-pane="a"], .duo > [data-pane="c"] { grid-column: 1; }
+.duo > [data-pane="b"], .duo > [data-pane="d"] { grid-column: 2; }
+
+/* Hidden panes keep their layout box (so the container never jumps) but can't be seen or reached. */
+.duo:not([data-duo-state="open"]):not([data-duo-state="folding"]) > :is([data-pane="c"], [data-pane="d"]),
+.duo[data-duo-state="open"] > :is([data-pane="a"], [data-pane="b"]),
+.duo[data-duo-state="folding"] > :is([data-pane="b"], [data-pane="c"]) {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* Three-panel mode: the left column is empty until the flap lands there. */
+.duo[data-duo-mode="three"] > [data-pane="a"] { display: none; }
+.duo[data-duo-mode="three"][data-duo-center] { translate: var(--duo-shift, 0px) 0; }
+
+/* ---- The temporary stage (exists only while folding) ---- */
+.duo-stage {
+  position: absolute;
+  inset: 0;
+  z-index: var(--duo-z, 10);
+  pointer-events: none;
+  overflow: visible;
+}
+.duo-flap { position: absolute; inset: 0; will-change: clip-path; }
+.duo-flap-glass { position: absolute; inset: -50%; background: var(--duo-glass); }
+.duo-face[hidden] { display: none; }
+.duo-face { position: absolute; inset: 0; }
+.duo-lyr { position: absolute; will-change: filter; }
+.duo-flat { position: absolute; overflow: hidden; border-radius: var(--duo-radius); }
+.duo-flat > .duo-copy {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  transform: none !important;
+  translate: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  grid-area: auto !important;
+}
+.duo-darken { position: absolute; pointer-events: none; }
+
+/* Reduced motion: the engine skips the fold; panes crossfade instead. */
+@media (prefers-reduced-motion: reduce) {
+  .duo > [data-pane] { transition: opacity .25s ease, visibility .25s; }
+}
