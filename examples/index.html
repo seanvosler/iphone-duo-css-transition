@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>duo-fold examples</title>
+
+<!-- The whole integration: one stylesheet, one script. -->
+<link rel="stylesheet" href="../src/duo-fold.css">
+<script type="module" src="../src/duo-fold.js"></script>
+
+<!-- Everything below is ordinary page styling for the demo UI, not part of duo-fold. -->
+<style>
+  :root { --bg:#eceee9; --fg:#1c2220; --muted:#5f6b67; --card:#fbfaf6; --line:#d6dbd6; --accent:#2c6770; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 80px; display: grid; gap: 56px; }
+  h1 { margin: 0 0 6px; font-size: 28px; }
+  h2 { margin: 0; font-size: 18px; }
+  .lede { margin: 0; color: var(--muted); max-width: 70ch; }
+  .demo-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 20px; margin-bottom: 14px; }
+  .demo-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  button { font: 600 14px/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 11px 18px; background: var(--accent); color: #fff; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  code { font-size: 13px; }
+  .log { font: 12px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 10px; min-height: 1.4em; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  input[type=range] { accent-color: var(--accent); width: 220px; }
+
+  /* Panes are styled by class, never with ".duo > …". */
+  .pane { background: var(--card); padding: 26px 28px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .pane h3 { margin: 0; font: 600 22px/1.15 Georgia, "Times New Roman", serif; }
+  .pane p { margin: 0; }
+  .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .art { border-radius: 10px; min-height: 150px; flex: 1; }
+  .art.dusk { background: linear-gradient(180deg,#f1c6a0,#e5a18a 55%,#7fa2a8 56%,#2e5058); }
+  .art.night { background: radial-gradient(circle at 62% 30%, #f5ecd9 0 34px, transparent 35px), linear-gradient(180deg,#1d3346,#5b6f86 55%,#e3a98b 80%,#2a4652 81%,#182c36); border-radius: 0; margin: -26px -28px; min-height: calc(100% + 52px); }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-variant-numeric: tabular-nums; }
+  dt { color: var(--muted); }
+
+  /* Example 1: a reader with an equal sidecar */
+  #reader { border-radius: 16px; overflow: visible; box-shadow: 0 20px 50px -30px rgba(0,0,0,.4); min-height: 380px; }
+  #reader .pane.left { border-radius: 16px 0 0 16px; }
+  #reader .pane.right { border-radius: 0 16px 16px 0; border-left: 1px solid var(--line); }
+
+  /* Example 2: an app with a narrow sidecar */
+  #inbox { --duo-columns: 2fr 1fr; --duo-gap: 1px; --duo-blur: 24px; --duo-duration: 1.3s; background: var(--line); border-radius: 12px; min-height: 340px; }
+  #inbox .pane { border-radius: 0; }
+  #inbox .pane:first-of-type, #inbox [data-pane="c"] { border-radius: 12px 0 0 12px; }
+  #inbox [data-pane="b"], #inbox [data-pane="d"] { border-radius: 0 12px 12px 0; }
+  .list { display: grid; gap: 2px; }
+  .list div { display:flex; justify-content:space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; background: #f1f2ee; }
+  .list div b { font-weight: 600; }
+  .list div span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  textarea { width: 100%; min-height: 120px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; resize: vertical; }
+
+  /* Example 3: a three-panel device */
+  .device-wrap { display:flex; justify-content:center; padding: 30px 0; }
+  #device { --duo-bezel: 10px; --duo-radius: 22px; --duo-glass: #121514; --duo-depth: .75; width: min(680px, 100%); aspect-ratio: 1.45; }
+  #device .pane { border-radius: 22px; outline: 10px solid #121514; padding: 22px; }
+  #device [data-pane="b"] { background: linear-gradient(160deg,#2f4d5a,#162630); color: #eef3f1; }
+  #device [data-pane="b"] .eyebrow { color: #b8c8c5; }
+  .clock { font: 300 64px/1 system-ui, sans-serif; letter-spacing: -.02em; }
+  .cal { display:grid; grid-template-columns: repeat(7,1fr); gap: 4px; text-align:center; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .cal span { padding: 6px 0; border-radius: 6px; }
+  .cal .today { background: var(--accent); color: #fff; }
+  .cal .dow { color: var(--muted); font-size: 11px; }
+
+  @media (max-width: 640px) {
+    .pane { padding: 18px; }
+    #device { aspect-ratio: .9; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>duo-fold examples</h1>
+    <p class="lede">Three ordinary layouts with duo-fold added. Each one is plain markup with <code>class="duo"</code>, <code>data-pane</code> on the panes and a <code>data-duo-toggle</code> button. The demo styling on this page isn't part of the library.</p>
+  </header>
+
+  <!-- 1 ------------------------------------------------------------ -->
+  <section>
+    <div class="demo-head">
+      <div>
+        <h2>1 · Reader with an equal sidecar</h2>
+        <p>Four panels, 50/50. B folds over A, C rides in on its back, D is uncovered. Scrubbing uses the JS API.</p>
+      </div>
+      <div class="row">
+        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Scrub the reader fold">
+        <button data-duo-toggle="reader">Open chapter 2</button>
+      </div>
+    </div>
+
+    <div class="duo" id="reader">
+      <article class="pane left" data-pane="a">
+        <span class="eyebrow">Chapter 1 · Low water</span>
+        <h3>What the tide leaves behind</h3>
+        <p>Before dawn the harbor empties like a drawn breath. The boats that were floating at midnight are sitting on their keels by four, leaning into one another, their mooring lines gone slack across the mud.</p>
+        <p>What surprises me every time is how much structure the water had been hiding: sandbars shaped like fingerprints, a line of old pilings, mussel beds so dense they read as a single dark coat.</p>
+        <p>The tide isn't a mood. It's a schedule, and it comes back at the minute the table says.</p>
+      </article>
+      <aside class="pane right" data-pane="b">
+        <span class="eyebrow">Field note · 04:12</span>
+        <div class="art dusk" role="img" aria-label="Pier at low water"></div>
+        <p>The pier at low water, 0.9 ft. By six the flats will be gone again.</p>
+      </aside>
+      <section class="pane left" data-pane="c">
+        <div class="art night" role="img" aria-label="Harbor at moonrise"></div>
+      </section>
+      <aside class="pane right" data-pane="d">
+        <span class="eyebrow">Chapter 2 · The table</span>
+        <h3>Twice a day, the sea leaves</h3>
+        <dl>
+          <dt>Low</dt><dd>04:12 · 0.9 ft</dd>
+          <dt>High</dt><dd>10:31 · 5.6 ft</dd>
+          <dt>Low</dt><dd>16:48 · 1.4 ft</dd>
+          <dt>High</dt><dd>22:55 · 6.1 ft</dd>
+        </dl>
+        <p><a href="#reader">Back to the top</a></p>
+      </aside>
+    </div>
+    <div class="log" id="log1"></div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------ -->
+  <section>
+    <div class="demo-head">
+      <div>
+        <h2>2 · App with a narrow sidecar</h2>
+        <p>Four panels, <code>--duo-columns: 2fr 1fr</code>. The flap changes length at 90°, where it can't be seen. Drag sideways on it, too.</p>
+      </div>
+      <button data-duo-toggle="inbox">Reply</button>
+    </div>
+
+    <div class="duo" id="inbox" data-duo-scrub="drag">
+      <section class="pane" data-pane="a">
+        <span class="eyebrow">Inbox · 4 unread</span>
+        <div class="list">
+          <div><b>Harbor office</b><span>Tide tables for October</span></div>
+          <div><b>Mara</b><span>Photos from the flats</span></div>
+          <div><b>Boatyard</b><span>Haul-out on the 14th</span></div>
+          <div><b>Library</b><span>Your hold is ready</span></div>
+        </div>
+      </section>
+      <aside class="pane" data-pane="b">
+        <span class="eyebrow">Mara · 08:40</span>
+        <h3>Photos from the flats</h3>
+        <p>Got the pier at first light. Sending the full set tonight.</p>
+        <div class="art dusk" role="img" aria-label="Photo preview"></div>
+      </aside>
+      <section class="pane" data-pane="c">
+        <span class="eyebrow">Reply to Mara</span>
+        <label for="reply">Message</label>
+        <textarea id="reply">These are great. Can you send the one with the pilings at full size?</textarea>
+        <p><button type="button" data-duo-close="inbox">Back to inbox</button></p>
+      </section>
+      <aside class="pane" data-pane="d">
+        <span class="eyebrow">Attachments</span>
+        <p>pier-0412.jpg<br>flats-wide.jpg</p>
+      </aside>
+    </div>
+    <div class="log" id="log2"></div>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------ -->
+  <section>
+    <div class="demo-head">
+      <div>
+        <h2>3 · Three panels, centered</h2>
+        <p><code>data-duo-mode="three"</code> with <code>data-duo-center</code>, a bezel and rounded corners. Drag it or scroll over it.</p>
+      </div>
+      <button data-duo-toggle="device">Unfold</button>
+    </div>
+
+    <div class="device-wrap">
+      <div class="duo" id="device" data-duo-mode="three" data-duo-center data-duo-scrub="drag wheel">
+        <div class="pane" data-pane="b">
+          <span class="eyebrow">Wednesday</span>
+          <div class="clock">9:41</div>
+          <p>Low water 04:12 · High 10:31</p>
+        </div>
+        <div class="pane" data-pane="c">
+          <span class="eyebrow">September</span>
+          <div class="cal">
+            <span class="dow">M</span><span class="dow">T</span><span class="dow">W</span><span class="dow">T</span><span class="dow">F</span><span class="dow">S</span><span class="dow">S</span>
+            <span></span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+            <span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span>
+            <span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span>
+            <span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span>
+            <span>28</span><span>29</span><span class="today">30</span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="pane" data-pane="d">
+          <span class="eyebrow">Today</span>
+          <dl>
+            <dt>04:12</dt><dd>Low water, 0.9 ft</dd>
+            <dt>10:31</dt><dd>High water, 5.6 ft</dd>
+            <dt>16:48</dt><dd>Low water, 1.4 ft</dd>
+            <dt>22:55</dt><dd>High water, 6.1 ft</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+    <div class="log" id="log3"></div>
+  </section>
+</main>
+
+<script type="module">
+  // Optional: the JS API and events. None of this is needed for the toggle buttons to work.
+  const log = (id, el) => {
+    const out = document.getElementById(id);
+    el.addEventListener('duo:start', (e) => { out.textContent = `duo:start → ${e.detail.to}`; });
+    el.addEventListener('duo:end', (e) => { out.textContent = `duo:end · state is "${e.detail.state}"`; });
+  };
+  log('log1', document.getElementById('reader'));
+  log('log2', document.getElementById('inbox'));
+  log('log3', document.getElementById('device'));
+
+  const reader = document.getElementById('reader');
+  const scrub = document.getElementById('scrub');
+  scrub.addEventListener('input', () => { reader.duo.progress = scrub.value / 1000; });
+  scrub.addEventListener('change', () => reader.duo.settle());
+  reader.addEventListener('duo:progress', (e) => { scrub.value = Math.round(e.detail.progress * 1000); });
+  reader.addEventListener('duo:end', (e) => { scrub.value = e.detail.state === 'open' ? 1000 : 0; });
+</script>
+</body>
+</html>

@@ -1,10 +1,38 @@
 # iphone-duo-css-transition
 
-A CSS + vanilla JS recreation of the iPhone Duo fold transition, for web layouts made of side-by-side panels. A flap folds across the view while the content on it stays flat. Depth comes from the flap's perspective outline, dark glass at its top and bottom, and blur and darkening that grow away from the hinge.
+The iPhone Duo fold for the web. A flap folds across your layout while the content on it stays flat. Depth comes from the flap's perspective outline, dark glass at its top and bottom, and blur and darkening that grow away from the hinge.
 
-No build step and no dependencies. Open `index.html` in a browser.
+This repo has two parts:
+- **duo-fold (v0.1):** a drop-in engine for existing two-column ("sidecar") layouts. One CSS file, one script, a few attributes.
+- **The playground** (`index.html`): the original interactive prototype, with tuning sliders.
 
-## Modes
+## duo-fold quick start
+
+```html
+<link rel="stylesheet" href="src/duo-fold.css">
+<script type="module" src="src/duo-fold.js"></script>
+
+<div class="duo" id="reader">
+  <section data-pane="a">…left, before…</section>
+  <aside   data-pane="b">…right, before; folds over…</aside>
+  <section data-pane="c">…left, after; rides in on the back of B…</section>
+  <aside   data-pane="d">…right, after; uncovered underneath…</aside>
+</div>
+<button data-duo-toggle="reader">Open</button>
+```
+
+Tune it with CSS (`--duo-blur`, `--duo-depth`, `--duo-duration`, `--duo-columns`, …), use `data-duo-mode="three"` for the Duo-style B → C|D, and script it with `el.duo.open()` and `duo:start` / `duo:progress` / `duo:end` events.
+
+- **[docs/PRINCIPLES.md](docs/PRINCIPLES.md):** the design principles, the full attribute, property and API reference, known limits and the roadmap.
+- **[examples/index.html](examples/index.html):** three ordinary layouts with duo-fold added (a 50/50 reader, a 2fr/1fr app sidecar and a centered three-panel device).
+
+ES modules don't load from `file://`, so serve the folder (for example `python3 -m http.server`) and open `/examples/`. When the repo is public, jsDelivr can serve a tagged release straight from GitHub: `https://cdn.jsdelivr.net/gh/seanvosler/iphone-duo-css-transition@v0.1.0/src/duo-fold.js` (and `.css`).
+
+---
+
+# The playground
+
+## Playground modes
 
 | Mode | At rest | After the fold |
 |------|---------|----------------|
@@ -48,7 +76,10 @@ window.foldSpread.cfg.maxBlur = 40;   // tune live
 
 ## Files
 
-- `index.html` is the current demo, with both modes, all controls and the tuning curves.
+- `src/duo-fold.css`, `src/duo-fold.js` are the v0.1 engine.
+- `examples/index.html` is the drop-in examples page.
+- `docs/PRINCIPLES.md` is the spec.
+- `index.html` is the playground, with both modes, all controls and the tuning curves.
 - `experiments/01-3d-page-turn.html` is the first attempt: a real CSS 3D `rotateY` page turn. Its content tilts with the page, which is what the Duo avoids.
 - `experiments/02-flat-glass-sweep.html` is the second attempt: a flat clip-path sweep with a side drop shadow, without the perspective outline.
 
